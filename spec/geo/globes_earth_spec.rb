@@ -10,11 +10,11 @@ describe Geo::Coord::Globes::Earth do
   it 'calculates distance (by Vincenty formula)' do
     @washington_dc.distance(@washington_dc).should == 0
     @washington_dc.distance(@chicago).should \
-      be_close(@chicago.distance(@washington_dc), 1)
-    @washington_dc.distance(@chicago).should be_close(958183, 1)
+      be_within(1).of(@chicago.distance(@washington_dc))
+    @washington_dc.distance(@chicago).should be_within(1).of(958183)
 
     # vincenty by design fails on antipodal points
-    @washington_dc.distance(@anti_washington).should be_close(20037502, 1)
+    @washington_dc.distance(@anti_washington).should be_within(1).of(20037502)
   end
 
   it 'calculates azimuth' do
@@ -23,22 +23,22 @@ describe Geo::Coord::Globes::Earth do
 
     # straight angles:
     Geo::Coord.new(41, -75).azimuth(Geo::Coord.new(39, -75)).should \
-      be_close(180, 1)
+      be_within(1).of(180)
 
     Geo::Coord.new(40, -74).azimuth(Geo::Coord.new(40, -76)).should \
-      be_close(270, 1)
+      be_within(1).of(270)
 
     Geo::Coord.new(39, -75).azimuth(Geo::Coord.new(41, -75)).should \
-      be_close(0, 1)
+      be_within(1).of(0)
 
     Geo::Coord.new(40, -76).azimuth(Geo::Coord.new(40, -74)).should \
-      be_close(90, 1)
+      be_within(1).of(90)
 
     # some direction on map
-    @washington_dc.azimuth(@chicago).should be_close(293, 1)
+    @washington_dc.azimuth(@chicago).should be_within(1).of(293)
 
     # vincenty by design fails on antipodal points
-    @washington_dc.azimuth(@anti_washington).should be_close(90, 1)
+    @washington_dc.azimuth(@anti_washington).should be_within(1).of(90)
   end
 
   it 'calculates endpoint' do

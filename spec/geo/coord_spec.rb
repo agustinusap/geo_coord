@@ -41,16 +41,16 @@ describe Geo::Coord do
       c = Geo::Coord.new(latd: 50, latm: 0, lats: 16,
                          lngd: 36, lngm: 13, lngs: 53)
 
-      c.lat.should be_close(50.004444, 0.01)
-      c.lng.should be_close(36.231389, 0.01)
+      c.lat.should be_within(0.01).of(50.004444)
+      c.lng.should be_within(0.01).of(36.231389)
 
       c = Geo::Coord.new(latd: 50, latm: 0, lats: 16)
-      c.lat.should be_close(50.004444, 0.01)
+      c.lat.should be_within(0.01).of(50.004444)
       c.lng.should == 0
 
       c = Geo::Coord.new(lngd: 36, lngm: 13, lngs: 53)
       c.lat.should == 0
-      c.lng.should be_close(36.231389, 0.01)
+      c.lng.should be_within(0.01).of(36.231389)
     end
 
     it 'is rasing ArgumentError when arguments are missing' do
@@ -142,7 +142,7 @@ describe Geo::Coord do
       c = Geo::Coord.new(50.004444, 36.231389)
       c.latd.should == 50
       c.latm.should == 0
-      c.lats.should be_close(16, 0.01)
+      c.lats.should be_within(0.01).of(16)
       c.lath.should == 'N'
       c.latdms.should == [c.latd, c.latm, c.lats, c.lath]
       c.latdms(true).should == [c.latd, c.latm, c.lats]
@@ -151,7 +151,7 @@ describe Geo::Coord do
       c = Geo::Coord.new(-50.004444, 36.231389)
       c.latd.should == 50
       c.latm.should == 0
-      c.lats.should be_close(16, 0.01)
+      c.lats.should be_within(0.01).of(16)
       c.lath.should == 'S'
       c.latdms(true).should == [-c.latd, c.latm, c.lats]
 
@@ -164,7 +164,7 @@ describe Geo::Coord do
       c = Geo::Coord.new(50.004444, 36.231389)
       c.lngd.should == 36
       c.lngm.should == 13
-      c.lngs.should be_close(53, 0.01)
+      c.lngs.should be_within(0.01).of(53)
       c.lngh.should == 'E'
       c.lngdms.should == [c.lngd, c.lngm, c.lngs, c.lngh]
       c.lngdms(true).should == [c.lngd, c.lngm, c.lngs]
@@ -173,7 +173,7 @@ describe Geo::Coord do
       c = Geo::Coord.new(50.004444, -36.231389)
       c.lngd.should == 36
       c.lngm.should == 13
-      c.lngs.should be_close(53, 0.01)
+      c.lngs.should be_within(0.01).of(53)
       c.lngh.should == 'W'
       c.lngdms(true).should == [-c.lngd, c.lngm, c.lngs]
     end
