@@ -54,10 +54,16 @@ module Geo
   #    g = Geo::Coord.parse_dms('50° 0′ 16″ N, 36° 13′ 53″ E')
   #    # => #<Geo::Coord 50°0'16"N 36°13'53"E>
   #
+  #    # Tries to parse degrees/decimal minutes:
+  #    g = Geo::Coord.parse_ddm('50° 0.2666′ N, 36° 13.8833′ E')
+  #    # => #<Geo::Coord 50°0'16"N 36°13'53"E>
+  #
   #    # Tries to do best guess:
   #    g = Geo::Coord.parse('50.004444, 36.231389')
   #    # => #<Geo::Coord 50°0'16"N 36°13'53"E>
   #    g = Geo::Coord.parse('50° 0′ 16″ N, 36° 13′ 53″ E')
+  #    # => #<Geo::Coord 50°0'16"N 36°13'53"E>
+  #    g = Geo::Coord.parse('50° 0.2666′ N, 36° 13.8833′ E')
   #    # => #<Geo::Coord 50°0'16"N 36°13'53"E>
   #
   #    # Allows user to provide pattern:
@@ -180,6 +186,23 @@ module Geo
       # @private
       DMS_PATTERN = /^\s*#{DMS_LAT_P}\s*[,; ]\s*#{DMS_LNG_P}\s*$/x # :nodoc:
 
+      # @private
+      DDM_LATD_P = "(?<latd>#{INT_PATTERN})#{DEG_PATTERN}".freeze # :nodoc:
+      # @private
+      DDM_LATM_P = "(?<latdm>#{UFLOAT_PATTERN})#{MIN_PATTERN}".freeze # :nodoc:
+      # @private
+      DDM_LAT_P = "#{DDM_LATD_P}\\s*#{DDM_LATM_P}\\s*(?<lath>[NS])".freeze # :nodoc:
+
+      # @private
+      DDM_LNGD_P = "(?<lngd>#{INT_PATTERN})#{DEG_PATTERN}".freeze # :nodoc:
+      # @private
+      DDM_LNGM_P = "(?<lngdm>#{UFLOAT_PATTERN})#{MIN_PATTERN}".freeze # :nodoc:
+      # @private
+      DDM_LNG_P = "#{DDM_LNGD_P}\\s*#{DDM_LNGM_P}\\s*(?<lngh>[EW])".freeze # :nodoc:
+
+      # @private
+      DDM_PATTERN = /^\s*#{DDM_LAT_P}\s*[,; ]\s*#{DDM_LNG_P}\s*$/x # :nodoc:
+
       # Parses Coord from string containing float latitude and longitude.
       # Understands several types of separators/spaces between values.
       #
@@ -217,6 +240,27 @@ module Geo
         raise ArgumentError, "Can't parse #{str} as degrees-minutes-seconds"
       end
 
+      # Parses Coord from string containing latitude and longitude in
+      # degrees-decimal minutes-hemisphere format. Understands several
+      # types of separators, degree, minute signs, as well as
+      # explicit hemisphere and no-hemisphere (signed degrees) formats.
+      #
+      #    Geo::Coord.parse_ddm('50°6.164′N 36°13.569′E')
+      #    # => #<Geo::Coord 50°6'10"N 36°13'34"E>
+      #
+      # If parse_ddm is not wise enough to understand your data, consider
+      # using ::strpcoord.
+      #
+      def parse_ddm(str)
+        str.match(DDM_PATTERN) do |m|
+          return new(
+            latd: m[:latd], latdm: m[:latdm], lath: m[:lath],
+            lngd: m[:lngd], lngdm: m[:lngdm], lngh: m[:lngh]
+          )
+        end
+        raise ArgumentError, "Can't parse #{str} as degrees-decimal minutes"
+      end
+
       # Tries its best to parse Coord from string containing it (in any
       # known form).
       #
@@ -224,18 +268,21 @@ module Geo
       #    # => #<Geo::Coord 50°0'16"S 36°13'53"E>
       #    Geo::Coord.parse('50°0′16″N 36°13′53″E')
       #    # => #<Geo::Coord 50°0'16"N 36°13'53"E>
+      #    Geo::Coord.parse('50°0.2666′N 36°13.8833′E')
+      #    # => #<Geo::Coord 50°0'16"N 36°13'53"E>
       #
       # If you know exact form in which coordinates are
-      # provided, it may be wider to consider parse_ll, parse_dms or
+      # provided, it may be wider to consider parse_ll, parse_dms, parse_ddm or
       # even ::strpcoord.
       def parse(str)
         # rubocop:disable Style/RescueModifier
-        parse_ll(str) rescue (parse_dms(str) rescue nil)
+        parse_ll(str) rescue (parse_dms(str) rescue (parse_ddm(str) rescue nil))
         # rubocop:enable Style/RescueModifier
       end
 
       # @private
       PARSE_PATTERNS = { # :nodoc:
+        '%latdm' => "(?<latdm>#{UFLOAT_PATTERN})",
         '%latd' => "(?<latd>#{INT_PATTERN})",
         '%latm' => "(?<latm>#{UINT_PATTERN})",
         '%lats' => "(?<lats>#{UFLOAT_PATTERN})",
@@ -243,6 +290,7 @@ module Geo
 
         '%lat' => "(?<lat>#{FLOAT_PATTERN})",
 
+        '%lngdm' => "(?<lngdm>#{UFLOAT_PATTERN})",
         '%lngd' => "(?<lngd>#{INT_PATTERN})",
         '%lngm' => "(?<lngm>#{UINT_PATTERN})",
         '%lngs' => "(?<lngs>#{UFLOAT_PATTERN})",
@@ -264,12 +312,14 @@ module Geo
       # %latd :: Latitude degrees, integer, may be signed (instead of
       #          providing hemisphere info
       # %latm :: Latitude minutes, integer, unsigned
+      # %latdm :: Latitude decimal minutes, float, unsigned
       # %lats :: Latitude seconds, float, unsigned
       # %lath :: Latitude hemisphere, "N" or "S"
       # %lng :: Full longitude, float
       # %lngd :: Longitude degrees, integer, may be signed (instead of
       #          providing hemisphere info
       # %lngm :: Longitude minutes, integer, unsigned
+      # %lngdm :: Longitude decimal minutes, float, unsigned
       # %lngs :: Longitude seconds, float, unsigned
       # %lngh :: Longitude hemisphere, "N" or "S"
       #
@@ -327,6 +377,8 @@ module Geo
         _init(lat, lng)
       when opts.key?(:lat) || opts.key?(:lng)
         _init(opts[:lat], opts[:lng])
+      when opts.key?(:latdm) || opts.key?(:lngdm)
+        _init_ddm(opts)
       when opts.key?(:latd) || opts.key?(:lngd)
         _init_dms(opts)
       else
@@ -356,6 +408,11 @@ module Geo
       (lat.abs * 60).to_i % 60
     end
 
+    # Returns latitude decimal minutes (unsigned float).
+    def latdm
+      (lat.abs * 60) % 60
+    end
+
     # Returns latitude seconds (unsigned float).
     def lats
       (lat.abs * 3600) % 60
@@ -374,6 +431,11 @@ module Geo
     # Returns longitude minutes (unsigned integer).
     def lngm
       (lng.abs * 60).to_i % 60
+    end
+
+    # Returns longitude decimal minutes (unsigned float).
+    def lngdm
+      (lng.abs * 60) % 60
     end
 
     # Returns longitude seconds (unsigned float).
@@ -422,6 +484,44 @@ module Geo
     #
     def lngdms(nohemisphere = false)
       nohemisphere ? [lngsign * lngd, lngm, lngs] : [lngd, lngm, lngs, lngh]
+    end
+
+    # Returns latitude components: degrees, decimal minutes and optionally
+    # a hemisphere:
+    #
+    #    # Nothern hemisphere:
+    #    g = Geo::Coord.new(50.004444, 36.231389)
+    #
+    #    g.latddm        # => [50, 0.2666e0, "N"]
+    #    g.latddm(true)  # => [50, 0.2666e0]
+    #
+    #    # Southern hemisphere:
+    #    g = Geo::Coord.new(-50.004444, 36.231389)
+    #
+    #    g.latddm        # => [50, 0.2666e0, "S"]
+    #    g.latddm(true)  # => [-50, 0.2666e0]
+    #
+    def latddm(nohemisphere = false)
+      nohemisphere ? [latsign * latd, latdm] : [latd, latdm, lath]
+    end
+
+    # Returns longitude components: degrees, decimal minutes and optionally
+    # a hemisphere:
+    #
+    #    # Eastern hemisphere:
+    #    g = Geo::Coord.new(50.004444, 36.231389)
+    #
+    #    g.lngddm        # => [36, 0.138833e2, "E"]
+    #    g.lngddm(true)  # => [36, 0.138833e2]
+    #
+    #    # Western hemisphere:
+    #    g = Geo::Coord.new(50.004444, -36.231389)
+    #
+    #    g.lngddm        # => [36, 0.138833e2, "W"]
+    #    g.lngddm(true)  # => [-36, 0.138833e2]
+    #
+    def lngddm(nohemisphere = false)
+      nohemisphere ? [lngsign * lngd, lngdm] : [lngd, lngdm, lngh]
     end
 
     # Latitude in radians. Geodesy formulae almost alwayse use greek Phi
@@ -497,6 +597,7 @@ module Geo
     # @private
     DIRECTIVES = { # :nodoc:
       /%(#{FLOATUFLAGS})?lats/ => proc { |m| "%<lats>#{m[1] || '.0'}f" },
+      /%(#{FLOATUFLAGS})?latdm/ => proc { |m| "%<latdm>#{m[1] || '.0'}f" },
       '%latm' => '%<latm>i',
       /%(#{INTFLAGS})?latds/ => proc { |m| "%<latds>#{m[1]}i" },
       '%latd' => '%<latd>i',
@@ -504,6 +605,7 @@ module Geo
       /%(#{FLOATFLAGS})?lat/ => proc { |m| "%<lat>#{m[1]}f" },
 
       /%(#{FLOATUFLAGS})?lngs/ => proc { |m| "%<lngs>#{m[1] || '.0'}f" },
+      /%(#{FLOATUFLAGS})?lngdm/ => proc { |m| "%<lngdm>#{m[1] || '.0'}f" },
       '%lngm' => '%<lngm>i',
       /%(#{INTFLAGS})?lngds/ => proc { |m| "%<lngds>#{m[1]}i" },
       '%lngd' => '%<lngd>i',
@@ -528,12 +630,14 @@ module Geo
     # %latds :: Latitude degrees, integer, signed
     # %latd :: Latitude degrees, integer, unsigned
     # %latm :: Latitude minutes, integer, unsigned
+    # %latdm :: Latitude decimal minutes, floating point, unsigned
     # %lats :: Latitude seconds, floating point, unsigned
     # %lath :: Latitude hemisphere, "N" or "S"
     # %lng :: Full longitude, floating point, signed
     # %lngds :: Longitude degrees, integer, signed
     # %lngd :: Longitude degrees, integer, unsigned
     # %lngm :: Longitude minutes, integer, unsigned
+    # %lngdm :: Longitude decimal minutes, floating point, unsigned
     # %lngs :: Longitude seconds, floating point, unsigned
     # %lngh :: Longitude hemisphere, "E" or "W"
     #
@@ -544,6 +648,8 @@ module Geo
     #    # => "+50.004444, +36.231389"
     #    g.strfcoord("%latd°%latm'%lath -- %lngd°%lngm'%lngh")
     #    # => "50°0'N -- 36°13'E"
+    #    g.strfcoord("%latd°%.03latdm' %lath -- %lngd°%.03lngdm' %lngh")
+    #    # => "50°0.267' N -- 36°13.883' E"
     #
     # +strfcoord+ handles seconds rounding implicitly:
     #
@@ -628,12 +734,24 @@ module Geo
       lat = (
         opts[:latd].to_i +
         opts[:latm].to_i / 60.0 +
-        opts[:lats].to_i / 3600.0
+        BigDecimal(opts[:lats].to_f / 3600.0, 6)
       ) * guess_sign(opts[:lath], LATH)
       lng = (
         opts[:lngd].to_i +
         opts[:lngm].to_i / 60.0 +
-        opts[:lngs].to_i / 3600.0
+        BigDecimal(opts[:lngs].to_f / 3600.0, 6)
+      ) * guess_sign(opts[:lngh], LNGH)
+      _init(lat, lng)
+    end
+
+    def _init_ddm(opts) # rubocop:disable Metrics/AbcSize
+      lat = (
+        opts[:latd].to_i +
+        BigDecimal(opts[:latdm].to_f / 60.0, 6)
+      ) * guess_sign(opts[:lath], LATH)
+      lng = (
+        opts[:lngd].to_i +
+        BigDecimal(opts[:lngdm].to_f / 60.0, 6)
       ) * guess_sign(opts[:lngh], LNGH)
       _init(lat, lng)
     end
@@ -672,6 +790,7 @@ module Geo
         latd: latd,
         latds: latds,
         latm: latm,
+        latdm: latdm,
         lats: lats,
         lath: lath,
         lat: lat,
@@ -679,6 +798,7 @@ module Geo
         lngd: lngd,
         lngds: lngds,
         lngm: lngm,
+        lngdm: lngdm,
         lngs: lngs,
         lngh: lngh,
         lng: lng
