@@ -94,10 +94,16 @@ g = Geo::Coord.parse_ll('50.004444, 36.231389')
 g = Geo::Coord.parse_dms('50° 0′ 16″ N, 36° 13′ 53″ E')
 # => #<Geo::Coord 50°0'16"N 36°13'53"E>
 
+# Tries to parse degrees/decimal minutes:
+g = Geo::Coord.parse_dmm('50° 0.2666′ N, 36° 13.8833′ E')
+# => #<Geo::Coord 50°0'16"N 36°13'53"E>
+
 # Tries to do best guess:
 g = Geo::Coord.parse('50.004444, 36.231389')
 # => #<Geo::Coord 50°0'16"N 36°13'53"E>
 g = Geo::Coord.parse('50° 0′ 16″ N, 36° 13′ 53″ E')
+# => #<Geo::Coord 50°0'16"N 36°13'53"E>
+g = Geo::Coord.parse('50° 0.2666′ N, 36° 13.8833′ E')
 # => #<Geo::Coord 50°0'16"N 36°13'53"E>
 
 # Allows user to provide pattern:
